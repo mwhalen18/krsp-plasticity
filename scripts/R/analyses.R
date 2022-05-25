@@ -9,13 +9,16 @@ sc = 100
 verbosity = FALSE
 gen_new = FALSE
 
-#TODO: Modularize .>.
-suppressWarnings({
-  source("scripts/R/lifetime_data.R")
-  source("scripts/R/densities.R")
-})
+
 
 if (gen_new) {
+  
+  #TODO: Modularize .>.
+  suppressWarnings({
+    source("scripts/R/lifetime_data.R")
+    source("scripts/R/densities.R")
+  })
+  
   # These functions suck. Theyre clunky and slow. Been on my list to fix them but for now they're fine
   # Run time is about 60 seconds and 210 seconds
   squirrel_densities = squirrelDensities(con, radius = 150, grids = c("KL", "SU"))
@@ -36,6 +39,8 @@ if (gen_new) {
   
   write_csv(litters, "output/data/raw_data.csv")
   
+} else {
+  litters = read_csv("output/data/raw_data.csv", show_col_types = FALSE)
 }
 
 # Visualizations ----------------------------------------------------------
@@ -64,8 +69,6 @@ cov_prior = list(R = list(V = 1, nu = 0.002),
                              G2 = list(V=1, nu=1, alpha.mu=0, alpha.V=625)))
 
 # PART models  -------------------------------------------------------------------------
-litters = 
-
 part_dat = litters %>% 
   select(part, dam_id, grid, year, litter_size, dam_age, cone_index, cone_index_tm1,
          local_density) %>% 
