@@ -12,7 +12,7 @@ suppressWarnings({
   source("scripts/R/densities.R")
 })
 
-sc = 1
+sc = 100
 verbosity = TRUE
 
 squirrel_densities = squirrelDensities(con)
@@ -240,3 +240,14 @@ tribble(
   "No Covariance", growth_plast_no_cov$DIC,
   "Covariance", growth_plast_cov$DIC
 )
+
+
+saveRDS(part_int, file = "output/models/part_int.rds")
+saveRDS(part_plast_no_cov, file = "output/models/part_plast_no_cov.rds")
+saveRDS(part_plast_cov, file = "output/models/part_plast_covint.rds")
+
+saveRDS(growth_int, file = "output/models/growth_int.rds")
+saveRDS(growth_plast_no_cov, file = "output/models/growth_plast_no_cov.rds")
+saveRDS(growth_plast_cov, file = "output/models/growth_plast_covint.rds")
+
+
