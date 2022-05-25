@@ -1,9 +1,6 @@
 library(RMySQL)
 library(tidyverse)
 
-con = dbConnect(MySQL(), group = "krsp-aws")
-
-
 # JUVE TABLE
 litters <- tbl(con, "juvenile") %>%
   select(litter_id
@@ -28,7 +25,12 @@ litters <- tbl(con, "juvenile") %>%
             by = "litter_id") %>%
   # CALCULATE GROWTH
   mutate(nest_days = DAYOFYEAR(n2_date) - DAYOFYEAR(n1_date),
-         growth = (n2_weight - n1_weight) / nest_days) %>%
+         growth = (n2_weight - n1_weight) / nest_days,
+         growth = if_else(is.na(n1_weight) | !between(n1_weight, 1, 50),
+                          NA_real_, growth),
+         growth = if_else(is.na(n1_weight) | !between(n2_weight, 1, 100),
+                         NA_real_, growth),
+         growth = if_else(nest_days < 5, NA_real_, growth)) %>%
   # JOIN LITTER info to fla2 to get juvenile survival
   left_join(.,
             tbl(con, "flastall2") %>%
@@ -44,13 +46,28 @@ litters <- tbl(con, "juvenile") %>%
             n1_date = mean(DAYOFYEAR(n1_date)),
             n2_date = mean(DAYOFYEAR(n2_date)),
             mean_growth = mean(growth),
-            .groups = "drop") %>%
-  # Join summaries to FLA to get dam age info
-  left_join(.,
-            tbl(con, "flastall") %>%
-              select(squirrel_id, byear),
-            by = c("dam_id" = "squirrel_id")) %>%
-  mutate(dam_age = byear - YEAR(fieldBDate))
+            .groups = "drop") %>% 
+  collect()
+
+#TODO:
+  # NOTE: Wtf the part dates are being imported as numeric but wont go above 99.999.
+  # NO Idea what is happening there. Running tests to see if I need to put an issue on Github for...
+  # someone???
+
+byears = tbl(con, "flastall") %>%
+  select(squirrel_id, byear) %>% 
+  collect()
+
+# TODO
+  #NOTE: importing numeric values using DAYOFYEAR translation in dbplyr results in ytrunctated values at 99.999
+  # This is a very odd issue and I have opened issue # 367 here ()
+
+litters = litters %>% left_join(
+  .,
+  byears,
+  by = c("dam_id" = "squirrel_id")
+) %>% 
+  mutate(dam_age = year(fieldBDate) - byear)
 
 
 # bring in cone data
@@ -59,7 +76,7 @@ cones_grids_years <- con %>%
   dbGetQuery(cones_sql) %>%
   tibble()
 
-litters <- collect(litters) %>%
+litters <-litters %>%
   left_join(cones_grids_years,
             by = c("grid", "year")) %>%
   mutate(prev_year = year - 1) %>%
