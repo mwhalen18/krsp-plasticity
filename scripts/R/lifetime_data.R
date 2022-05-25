@@ -1,5 +1,6 @@
 library(RMySQL)
 library(tidyverse)
+library(lubridate)
 
 # JUVE TABLE
 litters <- tbl(con, "juvenile") %>%

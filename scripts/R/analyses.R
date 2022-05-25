@@ -5,6 +5,9 @@ library(tidyverse)
 library(MCMCglmm)
 
 con = dbConnect(MySQL(), group = "krsp-aws")
+sc = 100 
+verbosity = FALSE
+gen_new = FALSE
 
 #TODO: Modularize .>.
 suppressWarnings({
@@ -12,25 +15,28 @@ suppressWarnings({
   source("scripts/R/densities.R")
 })
 
-sc = 100
-verbosity = TRUE
-
-squirrel_densities = squirrelDensities(con)
-midden_densities = middenDensities(con)
-
-densities = bind_rows(squirrel_densities, midden_densities) %>% 
-  filter(month == 8) %>% 
-  select(squirrel_id, year, local_density) %>% 
-  group_by(squirrel_id, year) %>% 
-  summarize(local_density = mean(local_density))
-
-litters = litters %>% 
-  left_join(
-    .,
-    densities,
-    by = c("dam_id" = "squirrel_id", "year" = "year")
-  )
+if (gen_new) {
+  # These functions suck. Theyre clunky and slow. Been on my list to fix them but for now they're fine
+  # Run time is about 60 seconds and 210 seconds
+  squirrel_densities = squirrelDensities(con, radius = 150, grids = c("KL", "SU"))
+  midden_densities = middenDensities(con, radius = 150, grids = c("KL", "SU"))
   
+  densities = bind_rows(squirrel_densities, midden_densities) %>% 
+    filter(month == 8) %>% 
+    select(squirrel_id, year, local_density) %>% 
+    group_by(squirrel_id, year) %>% 
+    summarize(local_density = mean(local_density))
+  
+  litters = litters %>% 
+    left_join(
+      .,
+      densities,
+      by = c("dam_id" = "squirrel_id", "year" = "year")
+    )
+  
+  write_csv(litters, "output/data/raw_data.csv")
+  
+}
 
 # Visualizations ----------------------------------------------------------
 
@@ -42,8 +48,6 @@ ggplot(litters, aes(x = local_density, y = litter_size, group = dam_id)) +
 
 ggplot(litters, aes(x = local_density, y = mean_growth, group = dam_id)) +
   geom_line()
-
-
 
 # Priors -------------------------------------------------------------------------
 
@@ -60,6 +64,8 @@ cov_prior = list(R = list(V = 1, nu = 0.002),
                              G2 = list(V=1, nu=1, alpha.mu=0, alpha.V=625)))
 
 # PART models  -------------------------------------------------------------------------
+litters = 
+
 part_dat = litters %>% 
   select(part, dam_id, grid, year, litter_size, dam_age, cone_index, cone_index_tm1,
          local_density) %>% 
@@ -93,8 +99,8 @@ part_int = MCMCglmm(part_sc ~ poly(dam_age, 2, raw = TRUE) +
                     pr = TRUE,
                     saveX = TRUE,
                     saveZ = TRUE)
-summary(part_int)
-plot(part_int)
+#summary(part_int)
+#plot(part_int)
 
 
 
@@ -116,8 +122,8 @@ part_plast_no_cov = MCMCglmm(part_sc ~ poly(dam_age, 2, raw = TRUE) +
                              saveX = TRUE,
                              saveZ = TRUE)
 
-summary(part_plast_no_cov)
-plot(part_plast_no_cov)
+#summary(part_plast_no_cov)
+#plot(part_plast_no_cov)
 
 part_plast_cov = MCMCglmm(part_sc ~ poly(dam_age, 2, raw = TRUE) +
                             IndCenDen +
@@ -137,8 +143,8 @@ part_plast_cov = MCMCglmm(part_sc ~ poly(dam_age, 2, raw = TRUE) +
                           saveX = TRUE,
                           saveZ = TRUE)
 
-summary(part_plast_cov)  
-plot(part_plast_cov)
+#summary(part_plast_cov)  
+#plot(part_plast_cov)
 
 # GROWTH models  -------------------------------------------------------------------------
 growth_dat = litters %>% 
